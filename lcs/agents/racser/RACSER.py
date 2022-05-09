@@ -5,7 +5,7 @@ from lcs.agents.Agent import TrialMetrics
 from lcs.agents.racser.ReplayMemory import ReplayMemory
 from lcs.agents.racser.ReplayMemorySample import ReplayMemorySample
 from lcs.strategies.action_selection.BestAction import BestAction
-from lcs.agents.racs import ClassifiersList
+from lcs.agents.racs import ClassifierList
 from lcs.agents.racser import Configuration
 from lcs.agents.Agent import Agent
 from lcs.agents.racs.action_selection import choose_action
@@ -17,9 +17,9 @@ class RACSER(Agent):
 
     def __init__(self,
                  cfg: Configuration,
-                 population: ClassifiersList = None) -> None:
+                 population: ClassifierList = None) -> None:
         self.cfg = cfg
-        self.population = population or ClassifiersList()
+        self.population = population or ClassifierList()
         self.replay_memory = ReplayMemory(max_size=cfg.er_buffer_size)
 
     def get_population(self):
@@ -41,7 +41,7 @@ class RACSER(Agent):
         done = False
 
         while not done:
-            state = Perception(state)
+            state = state
             assert len(state) == self.cfg.classifier_length
 
             match_set = self.population.form_match_set(state)
@@ -54,9 +54,9 @@ class RACSER(Agent):
             )
             logger.debug("\tExecuting action: [%d]", action)
 
-            prev_state = Perception(state)
+            prev_state = state
             raw_state, last_reward, done, _ = env.step(action)
-            state = Perception(raw_state)
+            state = raw_state
 
             # Add new sample to the buffer, potenially remove if exceed max size
             self.replay_memory.update(ReplayMemorySample(
@@ -76,7 +76,7 @@ class RACSER(Agent):
                     er_next_match_set = self.population.form_match_set(
                         sample.next_state)
                     # Apply learning in the replied action set
-                    ClassifiersList.apply_alp(
+                    ClassifierList.apply_alp(
                         self.population,
                         er_next_match_set,
                         er_action_set,
@@ -86,7 +86,7 @@ class RACSER(Agent):
                         time + steps,
                         self.cfg.theta_exp,
                         self.cfg)
-                    ClassifiersList.apply_reinforcement_learning(
+                    ClassifierList.apply_reinforcement_learning(
                         er_action_set,
                         sample.reward,
                         0 if sample.done else er_next_match_set.get_maximum_fitness(),
@@ -94,10 +94,10 @@ class RACSER(Agent):
                         self.cfg.gamma
                     )
                     if self.cfg.do_ga:
-                        ClassifiersList.apply_ga(
+                        ClassifierList.apply_ga(
                             time + steps,
                             self.population,
-                            ClassifiersList() if sample.done else er_next_match_set,
+                            ClassifierList() if sample.done else er_next_match_set,
                             er_action_set,
                             sample.next_state,
                             self.cfg.theta_ga,
@@ -117,17 +117,17 @@ class RACSER(Agent):
         logger.debug("** Running trial exploit **")
         # Initial conditions
         steps = 0
-        state = Perception(env.reset())
+        state = env.reset()
 
         last_reward = 0
-        action_set = ClassifiersList()
+        action_set = ClassifierList()
         done = False
 
         while not done:
             match_set = self.population.form_match_set(state)
 
             if steps > 0:
-                ClassifiersList.apply_reinforcement_learning(
+                ClassifierList.apply_reinforcement_learning(
                     action_set,
                     last_reward,
                     match_set.get_maximum_fitness(),
@@ -135,15 +135,17 @@ class RACSER(Agent):
                     self.cfg.gamma)
 
             # Here when exploiting always choose best action
-            action = BestAction(
-                all_actions=self.cfg.number_of_possible_actions)(match_set)
+            action = choose_action(
+                match_set,
+                self.cfg.number_of_possible_actions,
+                epsilon=0.0,
+                biased_exploration_prob=0.0)
             action_set = match_set.form_action_set(action)
 
             state, last_reward, done, _ = env.step(action)
-            state = Perception(state)
 
             if done:
-                ClassifiersList.apply_reinforcement_learning(
+                ClassifierList.apply_reinforcement_learning(
                     action_set, last_reward, 0, self.cfg.beta, self.cfg.gamma)
 
             steps += 1
