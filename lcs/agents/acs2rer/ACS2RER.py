@@ -2,17 +2,18 @@ import logging
 import random
 from lcs import Perception
 from lcs.agents.Agent import TrialMetrics
-from lcs.agents.acs2er.ReplayMemory import ReplayMemory
-from lcs.agents.acs2er.ReplayMemorySample import ReplayMemorySample
+from lcs.agents.acs2rer.ReplayMemory import ReplayMemory
+from lcs.agents.acs2rer.TrialReplayMemory import TrialReplayMemory
+from lcs.agents.acs2rer.ReplayMemorySample import ReplayMemorySample
 from lcs.strategies.action_selection.BestAction import BestAction
 from lcs.agents.acs2 import ClassifiersList
-from lcs.agents.acs2er import Configuration
+from lcs.agents.acs2rer import Configuration
 from lcs.agents.Agent import Agent
 
 logger = logging.getLogger(__name__)
 
 
-class ACS2ER(Agent):
+class ACS2RER(Agent):
 
     def __init__(self,
                  cfg: Configuration,
@@ -38,6 +39,7 @@ class ACS2ER(Agent):
         last_reward = 0
         prev_state = Perception.empty()
         done = False
+        trial_replay_memory = TrialReplayMemory()
 
         while not done:
             state = Perception(state)
@@ -52,16 +54,22 @@ class ACS2ER(Agent):
             state = Perception(raw_state)
 
             # Add new sample to the buffer, potenially remove if exceed max size
-            self.cfg.er_rm_update_func(self.replay_memory, ReplayMemorySample(
+            trial_replay_memory.update(ReplayMemorySample(
                 prev_state, action, last_reward, state, done))
 
-            if len(self.replay_memory) >= self.cfg.er_min_samples:
+            steps += 1
 
-                # Rand samples indexes from the replay memory buffer
-                samples = random.sample(
-                    range(0, len(self.replay_memory)), self.cfg.er_samples_number)
-                for sample_index in samples:
-                    sample: ReplayMemorySample = self.replay_memory[sample_index]
+        self.cfg.er_rm_update_func(self.replay_memory, trial_replay_memory)
+
+        if len(self.replay_memory) >= self.cfg.er_min_samples:
+
+            # Rand samples indexes from the replay memory buffer
+            trial_samples = random.sample(
+                range(0, len(self.replay_memory)), self.cfg.er_samples_number)
+            for trial_sample_index in trial_samples:
+                trial_sample: TrialReplayMemory = self.replay_memory[trial_sample_index]
+
+                for sample in trial_sample:
                     er_match_set = self.population.form_match_set(
                         sample.state)
                     er_action_set = er_match_set.form_action_set(
@@ -99,8 +107,6 @@ class ACS2ER(Agent):
                             self.cfg.theta_as,
                             self.cfg.do_subsumption,
                             self.cfg.theta_exp)
-
-            steps += 1
 
         return TrialMetrics(steps, last_reward)
 
