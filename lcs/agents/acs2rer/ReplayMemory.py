@@ -12,9 +12,12 @@ class ReplayMemory(TypedList):
     def __init__(self, *args, max_size: int, oktypes=(TrialReplayMemory,)) -> None:
         super().__init__(*args, oktypes=oktypes)
         self.max_size = max_size
+        self.weights = []
 
-    def update(self, sample: TrialReplayMemory) -> None:
+    def update(self, sample: TrialReplayMemory, weight: float) -> None:
         if len(self) >= self.max_size:
             self.pop(0)
+            self.weights.pop(0)
 
         self.append(sample)
+        self.weights.append(weight)

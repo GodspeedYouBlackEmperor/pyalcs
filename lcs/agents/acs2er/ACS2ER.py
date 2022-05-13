@@ -52,16 +52,17 @@ class ACS2ER(Agent):
             state = Perception(raw_state)
 
             # Add new sample to the buffer, potenially remove if exceed max size
-            self.cfg.er_rm_update_func(self.replay_memory, ReplayMemorySample(
-                prev_state, action, last_reward, state, done))
+            new_sample = ReplayMemorySample(
+                prev_state, action, last_reward, state, done)
+            self.replay_memory.update(
+                new_sample, self.cfg.er_weight_function(self.replay_memory, new_sample))
 
             if len(self.replay_memory) >= self.cfg.er_min_samples:
 
                 # Rand samples indexes from the replay memory buffer
-                samples = random.sample(
-                    range(0, len(self.replay_memory)), self.cfg.er_samples_number)
-                for sample_index in samples:
-                    sample: ReplayMemorySample = self.replay_memory[sample_index]
+                samples = random.choices(
+                    population=self.replay_memory, weights=self.replay_memory.weights, k=self.cfg.er_samples_number)
+                for sample in samples:
                     er_match_set = self.population.form_match_set(
                         sample.state)
                     er_action_set = er_match_set.form_action_set(

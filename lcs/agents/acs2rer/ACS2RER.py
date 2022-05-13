@@ -59,7 +59,9 @@ class ACS2RER(Agent):
 
             steps += 1
 
-        self.cfg.er_rm_update_func(self.replay_memory, trial_replay_memory)
+        # Add new sample to the buffer, potenially remove if exceed max size
+        self.replay_memory.update(trial_replay_memory, self.cfg.er_weight_function(
+            self.replay_memory, trial_replay_memory))
 
         if len(self.replay_memory) >= self.cfg.er_min_samples:
 

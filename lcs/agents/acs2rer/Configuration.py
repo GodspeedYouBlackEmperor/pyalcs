@@ -16,9 +16,9 @@ class Configuration(acs2.Configuration):
         # ER replay memory samples number
         self.er_samples_number = kwargs.get('er_samples_number', 3)
 
-        # ER replay memory samples number
-        self.er_rm_update_func = kwargs.get(
-            'er_rm_update_func', lambda rm, sample: rm.update(sample))
+        # ER weight_function
+        self.er_weight_function = kwargs.get(
+            'er_weight_function', lambda rm, sample: 1)
 
     def __str__(self) -> str:
         return str(vars(self))
